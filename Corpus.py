@@ -2,23 +2,25 @@ import random
 
 class Element(object):
     #Any noun in the story - a character, a location, a MacGuffin
-    def __init__(self,name,tags=set(),traits=set()):
+    def __init__(self,name,tags=[],traits=[]):
         self.name = name #The word itself
         self.tags = tags #Labels that say where this word can be used.
         self.traits = traits #Adjectives that describe this word.
         self.alignment = 0 #Are they good or evil (from sentiment analysis?)
 
-    def join(self,other):
-        #Combines this Element with another, if they have the same or similar names.
-        if self.name != other.name and self.name not in other.name and other.name not in self.name:
-            return
-        if len(other.name) > len(self.name):
-            self.name = other.name
-        self.tags = self.tags.union(other.tags)
-        self.traits = self.tags.union(other.traits)
+##    def join(self,other):
+##        #Combines this Element with another, if they have the same or similar names.
+##        if self.name != other.name and self.name not in other.name and other.name not in self.name:
+##            return
+##        if len(other.name) > len(self.name):
+##            self.name = other.name
+##        self.tags = self.tags.union(other.tags)
+##        self.traits = self.tags.union(other.traits)
 
 
     def __eq__(self,other):
+        if other == None:
+            return False
         if self.name == other.name or self.name in other.name or other.name in self.name:
             return True
         return False
@@ -37,41 +39,85 @@ class Trait(object):
         self.description = description
         self.alignment = align
 
+    def __eq__(self,other):
+        return (self.description == other.description and self.alignment == other.alignment)
+
+    def __hash__(self):
+        return hash(self.description) + self.alignment
+
     def __str__(self):
         return self.description
 
+#Problems are things that a hero can deal with.
+#They can be constrained to a particular hero in case I want to make
+#character-specific story arcs.
 class Problem():
-    def __init__(self,description):
+    def __init__(self,description,constraint=""):
         self.description = description
+        self.constraint = constraint
 
 def getHero():
     return Element("The Hero",
-                   set({"HERO","CHARACTER"}),
-                   set({Trait("flawed",Trait.NEGATIVE),
-                        Trait("cool",Trait.POSITIVE)})
+                   ["HERO","CHARACTER"],
+                   [getNegativeTrait(),
+                    getPositiveTrait()]
                    )
 
 def getVillain():
-    return Element("The Villain",set({"VILLAIN","CHARACTER"}),
-                   set({Trait("wearing a black hat",Trait.NEGATIVE)})
+    return Element("The Villain",["VILLAIN","CHARACTER"],
+                   [Trait("wearing a black hat",Trait.NEGATIVE)]
                    )
 
 def getNPC():
-    return Element("An NPC",set({"CHARACTER"}),
-                   set({Trait("just a guy",align=Trait.NEUTRAL)})
+    return Element("An NPC",["CHARACTER"],
+                   [Trait("totally normal",Trait.NEGATIVE)]
+                   )
+
+def getEvil():
+    return Element("A bad guy",["CHARACTER","EVIL"],
+                   [Trait("Wearing a black hat",align=Trait.NEGATIVE)]
+                   )
+
+def getGood():
+    return Element("A good guy",["CHARACTER","GOOD"],
+                   [Trait("Wearing a white hat",align=Trait.POSITIVE)]
                    )
 
 def getPositiveTrait():
-    return Trait("happy",Trait.POSITIVE)
+    traits = ["happy","cool","brave"]
+    return Trait(random.choice(traits),Trait.POSITIVE)
 
 def getNegativeTrait():
-    return Trait("unhappy",Trait.NEGATIVE)
+    traits = ["unhappy","lazy","cowardly"]
+    return Trait(random.choice(traits),Trait.NEGATIVE)
 
-def getTrait():
-    return Trait("some kinda guy",Trait.NEUTRAL)
+def getNeutralTrait():
+    return Trait("normal",Trait.NEUTRAL)
 
 def getProblem():
-    return Problem(getProblemDescription())
+    options = ["deliver the mail","fight the monster","find the MacGuffin"]
+    return Problem(random.choice(options))
 
-def getProblemDescription():
-    return random.choice(["deliver the mail","slay the dragon","destroy the ring"])
+def getMainProblem():
+    options = ["slay the dragon","destroy the ring","find the Golden Fleece"]
+    return Problem(random.choice(options))
+
+def getLocation():
+    locs = ["Rivendell","Mount Doom","Lothlorien"]
+    return Element(random.choice(locs),tags={"LOCATION"})
+
+def getElement(constraint):
+    if constraint == "HERO":
+       return getHero()
+    elif constraint == "VILLAIN":
+        return getVillain()
+    elif constraint == "NPC":
+        return getNPC()
+    elif constraint == "LOCATION":
+        return getLocation()
+    elif constraint == "EVIL":
+        return getEvil()
+    elif constraint == "GOOD" or constraint == "PARTY":
+        return getGood()
+    else:
+        raise Exception("Missing generator for " + constraint)
