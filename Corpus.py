@@ -25,6 +25,11 @@ class Element(object):
             return True
         return False
 
+    def __hash__(self):
+        return (hash(self.name) + sum([hash(tag) for tag in self.tags]) +
+                sum([hash(trait) for trait in self.traits]) +
+                hash(self.alignment))
+
     def __str__(self):
         return self.name + " " + str(self.tags)
 
@@ -48,6 +53,9 @@ class Trait(object):
     def __str__(self):
         return self.description
 
+
+global charCount
+charCount = 0
 #Problems are things that a hero can deal with.
 #They can be constrained to a particular hero in case I want to make
 #character-specific story arcs.
@@ -69,17 +77,23 @@ def getVillain():
                    )
 
 def getNPC():
-    return Element("An NPC",["CHARACTER"],
+    global charCount
+    charCount += 1
+    return Element("NPC" + str(charCount),["CHARACTER"],
                    [Trait("totally normal",Trait.NEGATIVE)]
                    )
 
 def getEvil():
-    return Element("A bad guy",["CHARACTER","EVIL"],
+    global charCount
+    charCount += 1
+    return Element("Goofus" + str(charCount),["CHARACTER","EVIL"],
                    [Trait("Wearing a black hat",align=Trait.NEGATIVE)]
                    )
 
 def getGood():
-    return Element("A good guy",["CHARACTER","GOOD"],
+    global charCount
+    charCount += 1
+    return Element("Gallant"+ str(charCount),["CHARACTER","GOOD"],
                    [Trait("Wearing a white hat",align=Trait.POSITIVE)]
                    )
 
@@ -95,7 +109,7 @@ def getNeutralTrait():
     return Trait("normal",Trait.NEUTRAL)
 
 def getProblem():
-    options = ["deliver the mail","fight the monster","find the MacGuffin"]
+    options = ["deliver the mail","fight the monster","find the MacGuffin","save the cat"]
     return Problem(random.choice(options))
 
 def getMainProblem():
@@ -104,7 +118,7 @@ def getMainProblem():
 
 def getLocation():
     locs = ["Rivendell","Mount Doom","Lothlorien"]
-    return Element(random.choice(locs),tags={"LOCATION"})
+    return Element(random.choice(locs),tags=["LOCATION"])
 
 def getElement(constraint):
     if constraint == "HERO":

@@ -22,7 +22,7 @@ def expandStory():
             AddMainProblem(), #Catalyst
             Debate(), #Debate
             Threshold(), #Threshold
-            AddProblem(solver="GOOD"), #B Plot
+            AddProblem(constraint="GOOD"), #B Plot
             FunAndGames(), #Fun and Games
             Interaction("POSITIVE"),
             Midpoint(), #Midpoint
@@ -41,24 +41,36 @@ def expandStory():
         scene.apply(world,plot)
     #After we've outline the scenes, go back and make sure that
     #every Element is introduced before it's used.
+    allPrereqs = set()
     for i in range(len(plot)):
         scene = plot[i]
         if hasattr(scene,"prereqs"):
             for prereq in scene.prereqs:
-                print(scene.prereqs)
-                slot = findOpenSlot(plot,i)
-                scene = Description(prereq)
-                scene.apply(world,plot)
-                plot.insert(slot,scene)
+                allPrereqs.add(prereq)
+    for prereq in allPrereqs:
+        slot = findOpenSlot(plot,i)
+        scene = Description(prereq)
+        plot.insert(slot,scene)
+        scene.apply(world,plot)
+        #print("Introduced " + prereq.name + " at " + str(slot))
 
     #Once this is done, output the finished story.
     for scene in plot:
-        print(scene.text)
+        print(type(scene).__name__,scene.text)
 
 #Finds all $-delimited strings in a setting and fills them in
 #with things in the world. May introduce new elements into the world.
 def makeReplacements(string,world,newFrequency=0.5):
-    return #split = re.sub("\$(.*?)\$",lambda m:replacement(m.groups()[0],world,newFrequency),string)
+    matches = re.findall("\$(.*?)\$",string)
+    result = []
+    for tag in matches:
+        element = replacement(tag,world,newFrequency)
+        #Now get the location of the tag in the string so we can cut it out.
+        match = re.search("\$(.*?)\$",string)
+        string = string[:match.start()] + element.name + string[match.end():]
+        result += [element]
+        
+    return string,result
 
 def replacement(string,world,newFrequency=0.5):
     #Makes a single replacement using something in the world.
@@ -106,6 +118,7 @@ class World(object):
         self.villain = Corpus.getVillain()
         self.party = []
         self.NPCs = []
+        self.other = []
         #Not every subplot is resolved immediately
         #Problems enter the World and hang around until they're resolved.
         self.activeProblems = []
@@ -121,12 +134,13 @@ class World(object):
         print("Antagonist:",str(self.villain))
         for npc in self.NPCs:
             print(str(npc))
-        print("Important Objects:")
-        for item in self.items:
-            print(str(item))
         print("Ongoing Problems:")
         for prob in self.activeProblems:
             print(str(prob))
+
+    @property
+    def allElements(self):
+        return [self.hero] + [self.villain] + self.party + self.NPCs + self.other
 
     def findElement(self,*constraints,createIfMissing=True):
         #Returns a random Element that meets the constraints.
@@ -142,13 +156,15 @@ class World(object):
                 results += self.NPCs
             elif constraint == "PARTY":
                 results += self.party
+            #Hero, party, and any good-aligned NPCs
             elif constraint == "GOOD":
                 results += [self.hero] + self.party
                 for char in self.NPCs:
                     if char.alignment > 0:
                         results += [char]
+            #Villain and any evil NPCs.
             elif constraint == "EVIL":
-                results += self.hero + self.party
+                results += [self.villain]
                 for char in self.NPCs:
                     if char.alignment < 0:
                         results += [char]
@@ -158,7 +174,7 @@ class World(object):
                 start = constraint.find("(") + 1
                 end = constraint.find(")")
                 traitDesc = constraint[start:end]
-                for char in ([self.hero] + [self.villain] + self.party + self.NPCs):
+                for char in (self.allElements):
                     for trait in char.traits:
                         if traitDesc == trait.description:
                             results += [char]
@@ -166,7 +182,16 @@ class World(object):
         #We may not have anything that fits, in which case we should probably invent one.
         if results == []:
             if createIfMissing:
-                return Corpus.getElement(constraint)
+                #Add the new item to the lists.
+                created = Corpus.getElement(constraint)
+                if constraint == "PARTY":
+                    self.party.append(created)
+                elif constraint == "NPC":
+                    self.NPCs.append(created)
+                else:
+                    self.other.append(created)
+                
+                return created
             else:
                 return None
         else:
@@ -198,22 +223,29 @@ class TheEnd(Scene):
 class Description(Scene):
     def __init__(self,element):
         self.element = element
+        self.text = ""
     def apply(self,world,plot):
         #Print all their traits
         traits = list(self.element.traits)
-        self.text = self.element.name + " was " + ", ".join([str(x) for x in traits[:-1]])
-        self.text += " and " + str(traits[-1]) + "."
+        if len(traits) == 0:
+            self.text = self.element.name + " had no interesting features."
+        elif len(traits) > 1:
+            self.text = self.element.name + " was " + ", ".join([str(x) for x in traits[:-1]])
+            self.text += " and " + str(traits[-1]) + "."
+        else:
+            self.text += self.element.name + " was " + str(traits[0]) + "."
 
 #Adds a new plot thread to the World. Inserts a SolveProblem somewhere later.
 class AddProblem(Scene):
     #A specific problem can be passed in.
     #A problem can be constrained to only be solvable by some category of person.
-    def __init__(self,endpoint=1,solver="",problem=None):
+    def __init__(self,endpoint=1,resolution="",constraint="",problem=None):
         self.endpoint = endpoint
         self.problem = problem
         if self.problem == None:
             self.problem = Corpus.getProblem()
-        self.solver = solver
+        self.constraint = constraint
+        self.resolution=resolution
 
     def apply(self,world,plot):
         self.text = "The heroes discovered that they had to " + self.problem.description + "."
@@ -222,7 +254,8 @@ class AddProblem(Scene):
         startIndex = plot.index(self)
         endIndex = startIndex + self.endpoint
         insert = random.randint(startIndex+1,endIndex)
-        plot.insert(insert,SolveProblem(self.problem))
+        plot.insert(insert,SolveProblem(self.problem,resolution=self.resolution,
+                                        constraint=self.constraint))
 
 #Resolving a problem removes it from the World.
 #It MAY do any of the following:
@@ -334,10 +367,12 @@ class MinorProblem(Scene):
     def __init__(self,resolution="",constraint="PARTY"):
         self.resolution = resolution
         self.constraint = constraint
+        self.prereqs = []
     def apply(self,world,plot):
         #Pick a random task
         task = random.choice(MinorProblem.tasks)
-        makeReplacements(task,world)
+        task,elementsAdded = makeReplacements(task,world)
+        self.prereqs += elementsAdded
         problem = Problem(task)
         #Add it to the world.
         index = plot.index(self)
