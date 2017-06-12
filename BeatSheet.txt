@@ -1,0 +1,21 @@
+Description(HERO) #Opening Image
+AddTrait(HERO,FLAW) #Setup
+AddProblem(HERO)
+AddMainProblem(ALL_CAST) #Catalyst
+WorldDescription()
+Debate(HERO,PARTY) #Debate
+Threshold(HERO,PARTY) #Threshold
+AddProblem(PARTY) #B Plot
+AddToParty(GOOD_NPC)
+Interaction(PARTY,HERO)
+AdvanceMainProblem(MAIN,POSITIVE) #Fun and Games
+AdvanceMainProblem(MAIN,NEGATIVE) #Midpoint
+AddTrait(PARTY,NEGATIVE)
+AddProblem(PARTY) #Bad Guy Closes In
+AdvanceMainProblem(MAIN,PARTY,NEGATIVE) #All Is Lost
+AddTrait(PARTY,NEGATIVE) #Long Night of the Soul
+Interaction(PARTY,HERO) #Eureka Moment
+RemoveTrait(HERO,FLAW)
+SolveMainProblem() #Finale
+SolveAllProblems()
+Description(HERO) #Final Image
